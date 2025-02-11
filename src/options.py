@@ -20,8 +20,9 @@ class Options():
         parser.add_argument('--ModelName', help='PixelHop/VoxelHop', type=str, default='VoxelHop')
         parser.add_argument('--NumUnit', help='num of unit for network', type=int, default=5)
         parser.add_argument('--Seed', type=int, default=10)
-        parser.add_argument('--Dataset', help='Dataset', type=str, default='/TBR_easy')
-        parser.add_argument('--DataType', help='Type of Data, Voxel/Event-Voxel/Gray/RGB', type=str, default='Voxel')
+        parser.add_argument('--Dataset', help='Dataset', type=str, default='TBR_easy')
+        parser.add_argument('--DataType', help='Type of Data, Voxel/Event-Voxel/Gray/RGB', type=str,
+                            default='Event-Voxel')
         parser.add_argument('--Datasize', help='Image or Voxel W/H', type=int, default=128)
         parser.add_argument('--Datanum', help='Number of data', type=int, default=20)
         parser.add_argument('--ImgChnNum', help='image channel', type=int, default=2)

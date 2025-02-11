@@ -13,6 +13,7 @@ class Dataloader:
         self.Depth = opt.FrameNum
         self.model = opt.ModelName
         self.seed = opt.Seed
+        self.type = opt.DataType
 
     def dataloader(self, root_dir):
         dataset = []
@@ -29,14 +30,10 @@ class Dataloader:
                 dataset.append(voxel_data)
                 labels.append(key)
 
-        Datasets = np.array(dataset)
-        Datasets = np.moveaxis(Datasets, (1, 2), (0, -1))
-
-        labels = np.stack(labels, axis=0)
+        Datasets = np.moveaxis(np.array(dataset), (1, 2), (0, -1))
         labels = np.array(labels)
 
         return Datasets, labels, class_list
-
 
     def _load_voxel_data(self, set_path):
         R, G, B = [], [], []
@@ -49,12 +46,17 @@ class Dataloader:
             img_array = np.moveaxis(img_array, -1, 0)
             if self.data_size != img_array.shape[-1]:
                 img_array = resize(img_array, (img_array.shape[0], self.data_size, self.data_size))
-
-            R.append(self.normalizing(img_array[0]))
-            # G.append(img_array[1])
-            B.append(self.normalizing(img_array[2]))
-
-        return np.stack((np.stack(R, axis=0), np.stack(B, axis=0)), axis=0)
+            if self.type == 'Event-Voxel':
+                R.append(self.normalizing(img_array[0]))
+                B.append(self.normalizing(img_array[2]))
+            else:
+                R.append(self.normalizing(img_array[0]))
+                G.append(self.normalizing(img_array[1]))
+                B.append(self.normalizing(img_array[2]))
+        if self.type == 'Event-Voxel':
+            return np.stack((np.stack(R, axis=0), np.stack(B, axis=0)), axis=0)
+        else:
+            return np.stack((np.stack(R, axis=0), np.stack(G, axis=0), np.stack(B, axis=0)), axis=0)
 
     def natural_sort_key(self, s):
         import re

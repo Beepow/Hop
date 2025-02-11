@@ -14,7 +14,7 @@ print('Setting: %s' % model_setting)
 
 saving_model_path = os.path.join(opt.ModelRoot, 'model_' + model_setting + '/')
 utils.mkdir(saving_model_path)
-data_root = opt.DataRoot + opt.Dataset + '/'
+data_root = opt.DataRoot + '/' + opt.Dataset + '/'
 
 if opt.ModelName == 'PixelHop++':
     Frame_Loader = FrameLoader.Dataloader(opt)
