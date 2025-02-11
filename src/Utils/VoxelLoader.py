@@ -17,13 +17,13 @@ class Dataloader:
     def dataloader(self, root_dir):
         dataset = []
         labels = []
+        random.seed(self.seed)
         class_list = [f for f in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, f))]
         for key, class_folder in enumerate(class_list):
             class_path = os.path.join(root_dir, class_folder)
             path_list = sorted([filename for filename in os.listdir(class_path) if filename != "._DAV"], key=self.natural_sort_key)
-            random.seed(self.seed)
-            train_path= random.sample(path_list, self.data_num)
-            for set_folder in train_path:
+            path_list = random.sample(path_list, self.data_num)
+            for set_folder in path_list:
                 set_path = os.path.join(class_path, set_folder)
                 voxel_data = self._load_voxel_data(set_path)
                 dataset.append(voxel_data)

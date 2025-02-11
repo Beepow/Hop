@@ -2,7 +2,7 @@ import numpy as np
 
 from src.options import Options
 import os
-from src.Utils import utils, VoxelLoader
+from src.Utils import utils, VoxelLoader, FrameLoader
 from src.models import PixelHop, VoxelHop, LAG_UNIT
 
 opt_parser = Options()
@@ -16,19 +16,19 @@ saving_model_path = os.path.join(opt.ModelRoot, 'model_' + model_setting + '/')
 utils.mkdir(saving_model_path)
 data_root = opt.DataRoot + opt.Dataset + '/'
 
-Voxel_loader = VoxelLoader.Dataloader(opt)
-(Data, labels, class_list) = Voxel_loader.dataloader(opt.DataRoot)
-S = list(Data.shape)
-S[0] = 1
-
 if opt.ModelName == 'PixelHop++':
+    Frame_Loader = FrameLoader.Dataloader(opt)
+    (Data, labels, class_list) = Frame_Loader.dataloader(data_root)
     model = PixelHop(opt)
 elif opt.ModelName == 'VoxelHop':
+    Voxel_loader = VoxelLoader.Dataloader(opt)
+    (Data, labels, class_list) = Voxel_loader.dataloader(data_root)
     model = VoxelHop(opt)
-
-
 else:
     raise ValueError('*****Wrong Model Name*****')
+
+S = list(Data.shape)
+S[0] = 1
 
 LAG = LAG_UNIT(opt, train_labels=labels, class_list=class_list)
 

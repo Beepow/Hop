@@ -17,11 +17,11 @@ class Options():
         parser.add_argument('--UseCUDA', help='Use CUDA?', type=str2bool, nargs='?', default=False)
         parser.add_argument('--NumWorker', help='num of worker for dataloader', type=int, default=1)
         parser.add_argument('--Mode', help='script mode', choices=['Train', 'Test'], default='Train')
-        parser.add_argument('--ModelName', help='PixelHop_pp/VoxelHop', type=str, default='VoxelHop')
-        parser.add_argument('--ModelSetting',help='PixelHop_pp/VoxelHop',type=str, default='VoxelHop')
+        parser.add_argument('--ModelName', help='PixelHop/VoxelHop', type=str, default='VoxelHop')
         parser.add_argument('--NumUnit', help='num of unit for network', type=int, default=5)
         parser.add_argument('--Seed', type=int, default=10)
-        parser.add_argument('--Dataset', help='Dataset', type=str, default='Cifar10-DVS')
+        parser.add_argument('--Dataset', help='Dataset', type=str, default='/TBR_easy')
+        parser.add_argument('--DataType', help='Type of Data, Voxel/Event-Voxel/Gray/RGB', type=str, default='Voxel')
         parser.add_argument('--Datasize', help='Image or Voxel W/H', type=int, default=128)
         parser.add_argument('--Datanum', help='Number of data', type=int, default=20)
         parser.add_argument('--ImgChnNum', help='image channel', type=int, default=2)
@@ -33,7 +33,7 @@ class Options():
         parser.add_argument('--Th1', help='whole PCA threshold', type=float, default=0.99)
         parser.add_argument('--Th2', help='each PCA threshold', type=float, default=0.005)
         # ##
-        parser.add_argument('--DataRoot', help='DataPath', type=str, default='/home/jwchoi/TBR_easy/')
+        parser.add_argument('--DataRoot', help='DataPath', type=str, default='./Dataset')
         parser.add_argument('--ModelRoot', help='Path for saving model', type=str, default='./models/')
         ####LAG
         parser.add_argument('--num_cluster', help='output feature shape', type=float, default=200)
