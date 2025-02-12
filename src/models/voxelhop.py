@@ -21,12 +21,12 @@ class VoxelHop:
         return self.forward(nth_hop, data)
 
     def forward(self, nth_hop, data):
-        print("=========== Start: PixelHop_Unit")
+        print(f"=========== Start: VoxelHop_{nth_hop}_Unit")
         # Intermediate_node, Leaf_node = self.Transform(feature)
         if self.mode == 'Train':
             Leaf_node = self.fit_transform(nth_hop, data, self.pca_params)
         else:
-            Leaf_node = self.Transform(data, self.pca_params)
+            Leaf_node = self.Transform(nth_hop, data)
 
         # print("       <Info>        Output feature shape: %s" % str(Intermediate_node.shape))
         print("       <Info>        Output feature shape: %s" % str(Leaf_node.shape))
@@ -77,17 +77,15 @@ class VoxelHop:
 
         return leaf_node
 
-    def Transform(self, feature, pca_params=None):
+    def Transform(self, nth_hop, feature):
         # print("------------------- Start: Pixelhop_fit")
         # print("       <Info>        Using weight: %s" % str(self.weight_name))
         # t0 = time.time()
-        fr = open('./weight/' + self.weight_name, 'rb')
-        pca_params = pickle.load(fr)
-        fr.close()
+        with open(f'{self.model_path}{nth_hop}hop_params.pkl', 'rb') as fr:
+            pca_params = pickle.load(fr)
         S = list(feature.shape)
         feature = np.moveaxis(feature, -1, 0)
         S[-1] = 1
-        Transformed_inter = []
         Transformed_Leaf = []
         for i in range(feature.shape[0]):
             X = feature[i].reshape(S)
