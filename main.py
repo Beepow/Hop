@@ -46,6 +46,7 @@ if opt.Mode == 'Train':
             # Intermediate = MaxPool_3D(Intermediate)
             feature = utils.AvgPooling(feature, opt.ModelName).reshape(feature.shape[0], -1)
             feature = LAG.LAG_Unit(feature, Mode=opt.Mode, Unit_num=i+1, Channel_num=j+1)
+            a = 0
 
 else:
     for i in range(opt.NumUnit):
