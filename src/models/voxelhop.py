@@ -42,7 +42,7 @@ class VoxelHop:
 
         for i in range(feature.shape[0]):
             X = feature[i].reshape(S)
-            Neighbor_Constructed = self.Neighbor_construction(X, dilate=self.dilate, pad=self.pad)
+            Neighbor_Constructed = self.Neighbor_construction(X)
             flatten_feature = Neighbor_Constructed.reshape(-1, Neighbor_Constructed.shape[-1])
 
             mean_removed, DC_mean = self.remove_mean(flatten_feature, axis=1)
@@ -73,7 +73,8 @@ class VoxelHop:
             pickle.dump(pca_params, f)
 
         trns_leaf = np.stack(Transformed_Leaf, axis=-1)
-        leaf_node = trns_leaf.reshape((S[0], S[1], S[2], trns_leaf.shape[1], trns_leaf.shape[2]))
+        # leaf_node = trns_leaf.reshape((S[0], S[1], S[2], trns_leaf.shape[1], trns_leaf.shape[2]))
+        leaf_node = trns_leaf.reshape((S[0], S[1], S[2], S[3], trns_leaf.shape[1]))
 
         return leaf_node
 
@@ -89,7 +90,7 @@ class VoxelHop:
         Transformed_Leaf = []
         for i in range(feature.shape[0]):
             X = feature[i].reshape(S)
-            Neighbor_Constructed = self.Neighbor_construction(X, dilate=self.dilate, pad=self.pad)
+            Neighbor_Constructed = self.Neighbor_construction(X)
 
             weight = pca_params['kernel'][i]
             bias = pca_params['bias'][i]
@@ -120,22 +121,26 @@ class VoxelHop:
         # return Intermediate_node, Leaf_node
         return Leaf_node
 
-    def Neighbor_construction(self, feature, dilate, pad):
-
+    def Neighbor_construction(self, feature):
         S = feature.shape
-        if pad == 'reflect':
-            feature = np.pad(feature, ((0, 0), (dilate, dilate), (dilate, dilate), (0, 0), (0, 0)), 'reflect')
-        elif pad == 'zeros':
-            feature = np.pad(feature, ((0, 0), (dilate, dilate), (dilate, dilate), (0, 0), (0, 0)), 'constant',
+        Di = self.dilate
+        P = self.pad
+        if P == 'reflect':
+            feature = np.pad(feature, ((0, 0), (Di, Di), (Di, Di), (Di, Di), (0, 0)), 'reflect')
+        elif P == 'zeros':
+            feature = np.pad(feature, ((0, 0), (Di, Di), (Di, Di), (Di, Di), (0, 0)), 'constant',
                              constant_values=0)
-        if pad == "none":
-            res = np.zeros((S[1] - 2 * dilate, S[2] - 2 * dilate, S[0], ((2 * dilate + 1) ** 3)* (S[3] - 2*dilate)))
+        if P == "none":
+            # res = np.zeros((S[1] - 2 * Di, S[2] - 2 * Di, S[0], ((2 * Di + 1) ** 3) * (S[3] - 2 * Di)))
+            res = np.zeros((S[1] - 2 * Di, S[2] - 2 * Di, S[0], (S[3] - 2 * Di), (2 * Di + 1) ** 3))
         else:
-            res = np.zeros((S[1], S[2], S[0], ((2 * dilate + 1) ** 3)* (S[3] - 2*dilate)))
+            # res = np.zeros((S[1], S[2], S[0], ((2 * Di + 1) ** 3) * (S[3] - 2 * Di)))
+            res = np.zeros((S[1], S[2], S[3], S[0], (2 * Di + 1) ** 3))
+
 
         idx = []
-        for N in range(-dilate, dilate + 1):
-            idx.append(int(N / dilate))
+        for N in range(-Di, Di + 1):
+            idx.append(int(N / Di))
         feature = np.moveaxis(feature, 0, -2)
 
         # for i in range(dilate, feature.shape[0] - dilate):
@@ -154,18 +159,20 @@ class VoxelHop:
         #         tt= tmp.reshape(S[0],-1)
         #         res[i - dilate, j - dilate] = tt
 
-        offsets = (np.array(np.meshgrid(idx, idx, idx, indexing='ij')) * dilate).astype(int)
+        offsets = (np.array(np.meshgrid(idx, idx, idx, indexing='ij')) * Di).astype(int)
         offsets = offsets.reshape(3, -1).T  # (27,3)
-        for i in range(dilate, feature.shape[0] - dilate):
-            for j in range(dilate, feature.shape[1] - dilate):
-                for k in range(dilate, feature.shape[2] - dilate):
+        for i in range(Di, feature.shape[0] - Di):
+            for j in range(Di, feature.shape[1] - Di):
+                for k in range(Di, feature.shape[2] - Di):
                     center = np.array([i, j, k])
                     coords = center + offsets
                     tmp_slice = feature[coords[:, 0], coords[:, 1], coords[:, 2]]
                     tmp_slice = np.moveaxis(tmp_slice, 0, 1)
-                    res[i - dilate, j - dilate,:,(k-1)*offsets.shape[0]:k*offsets.shape[0]] = tmp_slice.reshape(S[0], -1)
+                    tmp_slice = tmp_slice.reshape(S[0], -1)
+                    res[i - Di, j - Di, k - Di, :, :] = tmp_slice
+                    # res[i - Di, j - Di,:,(k-1)*offsets.shape[0]:k*offsets.shape[0]] = tmp_slice
 
-        res = np.moveaxis(res, 2, 0)
+        res = np.moveaxis(res, 3, 0)
 
         # print("       <Info>        Output feature shape: %s" % str(res.shape))
         # print("------------------- End: PixelHop_8_Neighbour -> using %10f seconds" % (time.time() - t0))
