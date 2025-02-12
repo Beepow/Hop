@@ -3,27 +3,30 @@ import numpy as np
 from sklearn.decomposition import PCA
 import time
 from numpy import linalg as LA
+import msgpack
 
 class VoxelHop:
-    def __init__(self, opt):
+    def __init__(self, opt, saving_model_path):
         self.mode = opt.Mode
         self.num_unit = opt.NumUnit
         self.weight_name = 'pca_params.pkl'
-        self.pca_params = []
+        self.pca_params = {}
         self.dilate = opt.dilate
         self.pad = opt.pad
         self.Th1 = opt.Th1
         self.Th2 = opt.Th2
+        self.model_path = saving_model_path
 
-    def __call__(self, data):
-        return self.forward(data)
+    def __call__(self, nth_hop, data):
+        return self.forward(nth_hop, data)
 
-    def forward(self, data):
+    def forward(self, nth_hop, data):
         print("=========== Start: PixelHop_Unit")
-        if self.mode == 'Train':
-            self.Saab_Fit(data)
         # Intermediate_node, Leaf_node = self.Transform(feature)
-        Leaf_node = self.Saab_Transform(data, self.pca_params)
+        if self.mode == 'Train':
+            Leaf_node = self.fit_transform(nth_hop, data, self.pca_params)
+        else:
+            Leaf_node = self.Transform(data, self.pca_params)
 
         # print("       <Info>        Output feature shape: %s" % str(Intermediate_node.shape))
         print("       <Info>        Output feature shape: %s" % str(Leaf_node.shape))
@@ -31,7 +34,50 @@ class VoxelHop:
         # return Intermediate_node, Leaf_node
         return Leaf_node
 
-    def Saab_Transform(self, feature, pca_params=None):
+    def fit_transform(self, nth_hop, feature, pca_params=None):
+        S = list(feature.shape)
+        feature = np.moveaxis(feature, -1, 0)
+        S[-1] = 1
+        Transformed_Leaf = []
+
+        for i in range(feature.shape[0]):
+            X = feature[i].reshape(S)
+            Neighbor_Constructed = self.Neighbor_construction(X, dilate=self.dilate, pad=self.pad)
+            flatten_feature = Neighbor_Constructed.reshape(-1, Neighbor_Constructed.shape[-1])
+
+            mean_removed, DC_mean = self.remove_mean(flatten_feature, axis=1)
+            bias = np.max(LA.norm(mean_removed, axis=1))
+
+            training_data, AC_mean = self.remove_mean(mean_removed, axis=0)
+
+            kernels, energy, discard_idx = self.find_kernels_pca(training_data)
+            dc_anchor = np.ones((1, training_data.shape[-1])) * 1 / np.sqrt(training_data.shape[-1])
+            kernels = np.concatenate((dc_anchor, kernels[:-1]), axis=0)
+
+            flatten_feature += bias
+            flatten_feature -= AC_mean
+            mul_leaf = np.matmul(flatten_feature, np.transpose(np.array(kernels)))
+            Transformed_Leaf.append(mul_leaf)
+
+            print(f"       <Info>        {i + 1}th Kernel shape: {kernels.shape}")
+
+            pca_params[i] = {
+                'bias': bias,
+                'kernel': kernels,
+                'energy': energy,
+                'discard_inter': discard_idx,
+                'pca_mean': AC_mean
+            }
+
+        with open(f'{self.model_path}{nth_hop}hop_params.pkl', 'wb') as f:
+            pickle.dump(pca_params, f)
+
+        trns_leaf = np.stack(Transformed_Leaf, axis=-1)
+        leaf_node = trns_leaf.reshape((S[0], S[1], S[2], trns_leaf.shape[1], trns_leaf.shape[2]))
+
+        return leaf_node
+
+    def Transform(self, feature, pca_params=None):
         # print("------------------- Start: Pixelhop_fit")
         # print("       <Info>        Using weight: %s" % str(self.weight_name))
         # t0 = time.time()
@@ -75,77 +121,6 @@ class VoxelHop:
         # print("------------------- End: Saab fit -> using %10f seconds" % (time.time() - t0))
         # return Intermediate_node, Leaf_node
         return Leaf_node
-
-    def remove_mean(self, features, axis):
-        feature_mean = np.mean(features, axis=axis, keepdims=True)
-        feature_remove_mean = features - feature_mean
-        return feature_remove_mean, feature_mean
-
-    def find_kernels_pca(self, samples, N=100000): #, num_kernels
-        pca = PCA(n_components=samples.shape[1], svd_solver='full')
-        pca.fit(samples)
-        energy = pca.explained_variance_ratio_
-
-        energy_sum = np.cumsum(pca.explained_variance_ratio_)
-        num_components = np.sum(energy_sum < self.Th1) + 1
-
-        discard_idx = np.argwhere(energy < self.Th2)
-        # kernels = pca.components_[:,:]
-        kernels = np.delete(pca.components_[:, :], discard_idx, axis=0)
-        print("-------Energy sum:", np.sum(energy))
-
-        return kernels, energy, discard_idx
-
-    def Saab_Fit(self, feature):
-        print("------------------- Start: Saab transformation")
-        t0 = time.time()
-        S = list(feature.shape)
-        kernel_cur = []
-        bias_cur = []
-        AC_Mean = []
-        DC_Mean = []
-        Covar = []
-        discard_idx = []
-        pca_params = {}
-        print("       <Info>        pixelhop_feature.shape: %s" % str(feature.shape))
-        feature = np.moveaxis(feature, -1, 0)
-
-        S[-1] = 1
-        for i in range(feature.shape[0]):
-            X = feature[i].reshape(S)
-
-            Neighbor_Constructed = self.Neighbor_construction(X, dilate=self.dilate, pad=self.pad)
-
-            flatten_feature = Neighbor_Constructed.reshape(-1, Neighbor_Constructed.shape[-1])
-            mean_removed, DC_mean = self.remove_mean(flatten_feature, axis=1)
-            pp = np.mean(mean_removed)
-            bias = LA.norm(mean_removed, axis=1)
-            bias = np.max(bias)
-            bias_cur.append(bias)
-
-            training_data, AC_mean = self.remove_mean(mean_removed, axis=0)
-            # print(np.mean(training_data, axis=0))
-            AC_Mean.append(AC_mean)
-
-            kernels, energy, discard_idx = self.find_kernels_pca(training_data)#, self.num_kernel
-            dc_anchor = np.ones((1, training_data.shape[-1])) * 1 / np.sqrt(training_data.shape[-1])
-            kernels = np.concatenate((dc_anchor, kernels[:-1]), axis=0)
-            kernel_cur.append(kernels)
-
-            pca_params['bias'] = bias_cur
-            pca_params['kernel'] = kernel_cur
-            pca_params['energy'] = energy
-            pca_params['discard_inter'] = discard_idx
-            pca_params['pca_mean'] = AC_Mean
-
-            print(f"       <Info>        {i+1}th Kernel shape: %s" % str(kernels.shape))
-
-        fw = open('./weight/' + self.weight_name, 'wb')
-        pickle.dump(pca_params, fw)
-        fw.close()
-        print("       <Info>        Save pca params as name: %s" % str(self.weight_name))
-        print("------------------- End: Saab transformation -> using %10f seconds" % (time.time() - t0))
-
 
     def Neighbor_construction(self, feature, dilate, pad):
 
@@ -212,3 +187,23 @@ class VoxelHop:
         eva = eva[inds]
         kernels = eve.transpose()[inds]
         return kernels, eva / (feature.shape[0] - 1)
+
+    def remove_mean(self, features, axis):
+        feature_mean = np.mean(features, axis=axis, keepdims=True)
+        feature_remove_mean = features - feature_mean
+        return feature_remove_mean, feature_mean
+
+    def find_kernels_pca(self, samples, N=100000):  # , num_kernels
+        pca = PCA(n_components=samples.shape[1], svd_solver='full')
+        pca.fit(samples)
+        energy = pca.explained_variance_ratio_
+
+        energy_sum = np.cumsum(pca.explained_variance_ratio_)
+        num_components = np.sum(energy_sum < self.Th1) + 1
+
+        discard_idx = np.argwhere(energy < self.Th2)
+        # kernels = pca.components_[:,:]
+        kernels = np.delete(pca.components_[:, :], discard_idx, axis=0)
+        print("-------Energy sum:", np.sum(energy))
+
+        return kernels, energy, discard_idx

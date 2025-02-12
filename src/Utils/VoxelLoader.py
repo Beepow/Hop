@@ -29,7 +29,6 @@ class Dataloader:
                 voxel_data = self._load_voxel_data(set_path)
                 dataset.append(voxel_data)
                 labels.append(key)
-
         Datasets = np.moveaxis(np.array(dataset), (1, 2), (0, -1))
         labels = np.array(labels)
 
@@ -41,8 +40,7 @@ class Dataloader:
                            , key=self.natural_sort_key)[:self.Depth]
         for img_filename in file_list:         # Fix voxel size
             img_path = os.path.join(set_path, img_filename)
-            img = Image.open(img_path).convert('RGB')
-            img_array = np.array(img)
+            img_array = np.array(Image.open(img_path).convert('RGB'))
             img_array = np.moveaxis(img_array, -1, 0)
             if self.data_size != img_array.shape[-1]:
                 img_array = resize(img_array, (img_array.shape[0], self.data_size, self.data_size))
