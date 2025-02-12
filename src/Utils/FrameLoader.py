@@ -11,50 +11,42 @@ class Dataloader:
         self.data_num = opt.Datanum     #number of data
         self.dataset = opt.Dataset
         self.Depth = opt.FrameNum
-        self.model = opt.ModelName
         self.seed = opt.Seed
+        self.type = opt.DataType
 
     def dataloader(self, root_dir):
         dataset = []
         labels = []
         class_list = [f for f in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, f))]
-        for key, class_folder in enumerate(class_list):
+
+        for label, class_folder in enumerate(class_list):
             class_path = os.path.join(root_dir, class_folder)
-            path_list = sorted([filename for filename in os.listdir(class_path) if filename != "._DAV"], key=self.natural_sort_key)
             random.seed(self.seed)
-            train_path= random.sample(path_list, self.data_num)
-            for set_folder in train_path:
-                set_path = os.path.join(class_path, set_folder)
-                voxel_data = self._load_voxel_data(set_path)
-                dataset.append(voxel_data)
-                labels.append(key)
+            # train_path= random.sample(path_list, self.data_num)
+            data = self._load_data(class_path)
+            dataset.append(data)
+            labels.append(label)
 
         Datasets = np.array(dataset)
         Datasets = np.moveaxis(Datasets, (1, 2), (0, -1))
 
         labels = np.stack(labels, axis=0)
-        labels = np.array(labels)
+        # labels = np.array(labels)
 
         return Datasets, labels, class_list
 
-
-    def _load_voxel_data(self, set_path):
-        R, G, B = [], [], []
+    def _load_data(self, set_path):
         file_list = sorted([filename for filename in os.listdir(set_path) if filename != "._DAV"]
-                           , key=self.natural_sort_key)[:self.Depth]
-        for img_filename in file_list:         # Fix voxel size
+                           , key=self.natural_sort_key)
+        for img_filename in file_list:
             img_path = os.path.join(set_path, img_filename)
-            img = Image.open(img_path).convert('RGB')
+            img = Image.open(img_path).convert(self.type)
             img_array = np.array(img)
             img_array = np.moveaxis(img_array, -1, 0)
             if self.data_size != img_array.shape[-1]:
                 img_array = resize(img_array, (img_array.shape[0], self.data_size, self.data_size))
 
-            R.append(self.normalizing(img_array[0]))
-            # G.append(img_array[1])
-            B.append(self.normalizing(img_array[2]))
-
-        return np.stack((np.stack(R, axis=0), np.stack(B, axis=0)), axis=0)
+        return img_array
 
     def natural_sort_key(self, s):
         import re

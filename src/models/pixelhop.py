@@ -16,7 +16,7 @@ class PixelHop:
         self.Saab_Fit()  # Assuming initial fitting at construction
         self.Saab_Transform()  # Assuming transformation follows fitting
 
-    def forward(self, data):
+    def forward(self, nth_hop, data):
         print("=========== Start: PixelHop_Unit")
         if self.mode == 'Train':
             self.Saab_Fit(data)
